@@ -50,7 +50,7 @@ public class FileProcessor{
 		this.debug = true;
 		this.propertiesFile = propertiesFile;
 		this.patterns_separator = ", ";
-		this.rotation_degree = 90;
+		this.rotation_degree = 0;
 		this.patterns_prefix = PREFIX_PATTERN;
 		this.TXT_enabled = false;
 		this.TXT_append = false;
@@ -119,55 +119,11 @@ public class FileProcessor{
 	
 	private void loadDefaultPatterns(){
 		this.patterns = new HashMap<String, String[]>();
-		this.patterns.put("numero di fattura", (new String[]{
-				"Bolletta n. \n(.)\\.*",
-				"Segue bolletta Hera Comm n. (\\d{1,12})",
-				"Fattura n. (\\d{1,12}) del"
+		this.patterns.put("1", (new String[]{
+				"Text1 (.*) Text2, text1 (.*) text2"
 				}));
-		this.patterns.put("data fattura", (new String[]{
-				"Segue bolletta Hera Comm n. .* del (\\d{1,2}.\\d{1,2}.\\d{1,4})",
-				"Data emissione (\\d{1,2}.\\d{1,2}.\\d{1,4})",
-				"Data emissione (\\d{1,2}.\\d{1,2}.\\d{1,4})\\.*"
-				}));
-		this.patterns.put("comune", (new String[]{
-				"(?m)Servizio fornito in.*\\s{1,2}\\d{5} (\\p{Print}*) \\.*",
-				"(?m)Servizio fornito in.*\\s{1,2}\\d{5} (\\p{Print}*)",
-				"(?m)Servizio fornito in.*\\s{1,2}\\w*\\s{1,2}\\d{5} (\\p{Print}*) \\.*",
-				"(?m)Servizio fornito in.*\\s{1,2}.*\\s{1,2}\\d{5} (\\p{Print}*) \\.*",
-				"\\d{5} ([A-Z]*) \\w{2}\\.*",
-				"\\d{5} ([A-Z]*)\\.*",
-				"\\d{5}  ([A-Z]*)  \\w{2}\\.*"
-				}));
-		this.patterns.put("pod", (new String[]{
-				"POD \\(Punto di prelievo\\): (\\w{1,14})\\.+",
-				"POD \\(Punto di prelievo\\): (\\w{1,14})\\.*",
-				".*POD (\\w{1,14})", 
-				"IT001E(\\w{4,8})"
-				}));
-		this.patterns.put("totale fattura", (new String[]{
-				"Totale bolletta Hera Comm (.*) €", 
-				"Totale bolletta/contratto (.*) €",
-				"\\s{1,2}Totale da pagare (.*) €"
-				}));
-		this.patterns.put("imponibile", (new String[]{
-				"Aliquota IVA 22% (.*) ",
-				"Totale netto IVA (.*) €",
-				"22% IVA vendite 22% mensile ((\\d{1,3}.)?\\d{1,3},\\d{1,2})",
-				"IVA 22% su base imponibile .* € (.*) €"
-				}));
-		this.patterns.put("consumi in kWh", (new String[]{
-				"Consumo fatturato \\(Chilowatt orari\\).*,\\d{1,3} ((\\d{1,3}.)?\\d{1,3},\\d{1,3}) kWh",
-				"(?m)totale\\s{1,2}kWh (\\p{Print}*)",
-				",\\d{1,3} ((\\d{1,3}.)?\\d{1,3},\\d{1,3}) kWh",
-				"consumo rilevato dal \\.*,\\d{1,3} ((\\d{1,3}.)?\\d{1,3},\\d{1,3}) kWh",
-				"Consumo rilevato dal \\.*,\\d{1,3} ((\\d{1,3}.)?\\d{1,3},\\d{1,3}) kWh"
-				}));
-		this.patterns.put("periodo di competenza", (new String[]{
-				"consumo rilevato (dal \\d{1,2}.\\d{1,2}.\\d{1,4} al \\d{1,2}.\\d{1,2}.\\d{1,4} \\(\\d{1,3} giorni\\))",
-				"Consumo rilevato (dal \\d{1,2}.\\d{1,2}.\\d{1,4} al \\d{1,2}.\\d{1,2}.\\d{1,4} \\(\\d{1,3} giorni\\))",
-				"consumo stimato (dal \\d{1,2}.\\d{1,2}.\\d{1,4} al \\d{1,2}.\\d{1,2}.\\d{1,4} \\(\\d{1,3} giorni\\))",
-				"Consumo stimato (dal \\d{1,2}.\\d{1,2}.\\d{1,4} al \\d{1,2}.\\d{1,2}.\\d{1,4} \\(\\d{1,3} giorni\\))",
-				"(?m)Stiamo ricalcolando consumi .* (dal\\s{1,3}\\d{1,2}.\\d{1,2}.\\d{1,4} al \\d{1,2}.\\d{1,2}.\\d{1,4})"
+		this.patterns.put("2", (new String[]{
+				"Text3 (.*) Text4, text3 (.*) text4"
 				}));
 	}
 	
