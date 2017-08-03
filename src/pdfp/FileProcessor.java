@@ -39,6 +39,11 @@ public class FileProcessor{
 	private String filename_entry;
 	private String ETL_from;
 	private String ETL_to;
+	public boolean copyPDF;
+	public String[] PDFformat;
+	public String copyPDFsep;
+	public String copyPDFETL_from;
+	public String copyPDFETL_to;
 	private HashMap<String, String[]> patterns;
 
 	public FileProcessor(){
@@ -59,6 +64,11 @@ public class FileProcessor{
 		this.filename_entry = "filename";
 		this.ETL_from = "\\r\\n|\\r|\\n";
 		this.ETL_to = " ";
+		this.copyPDF = true;
+		this.copyPDFsep = " ";
+		this.copyPDFETL_from = "/";
+		this.copyPDFETL_to = ".";
+		this.PDFformat = new String[]{"comune", "numero di fattura", "data fattura"};
 		
 		if(!new File(this.propertiesFile).exists()){
 			this.loadDefaultPatterns();
@@ -69,6 +79,7 @@ public class FileProcessor{
 		System.out.println(this);
 	}
 		
+	@SuppressWarnings("unchecked")
 	public void readProperties(){
 		Properties prop = new Properties();
 		InputStream input = null;
@@ -96,6 +107,12 @@ public class FileProcessor{
 				this.filename_entry = prop.getProperty("filename_entry");
 				this.ETL_from = prop.getProperty("ETL_from");
 				this.ETL_to = prop.getProperty("ETL_to");
+				this.copyPDF = Boolean.parseBoolean(prop.getProperty("copyPDF"));
+				this.copyPDFsep = prop.getProperty("copyPDFsep");
+				this.copyPDFETL_from = prop.getProperty("copyPDFETL_from");
+				this.copyPDFETL_to = prop.getProperty("copyPDFETL_to");
+				String tmp = prop.getProperty("PDFformat").replaceAll("^\\[", "").replaceAll("\\]$", "");;
+				this.PDFformat = tmp.split(this.patterns_separator);
 				
 
 				this.patterns = new HashMap<String, String[]>();
@@ -120,10 +137,10 @@ public class FileProcessor{
 	private void loadDefaultPatterns(){
 		this.patterns = new HashMap<String, String[]>();
 		this.patterns.put("1", (new String[]{
-				"Text1 (.*) Text2, text1 (.*) text2"
+                               "Text1 (.*) Text2, text1 (.*) text2"
 				}));
 		this.patterns.put("2", (new String[]{
-				"Text3 (.*) Text4, text3 (.*) text4"
+                               "Text3 (.*) Text4, text3 (.*) text4"
 				}));
 	}
 	
@@ -144,6 +161,11 @@ public class FileProcessor{
 			prop.setProperty("filename_entry", this.filename_entry); 
 		    prop.setProperty("ETL_from", this.ETL_from);
 		    prop.setProperty("ETL_to", this.ETL_to);
+		    prop.setProperty("copyPDF", Boolean.toString(this.copyPDF));
+		    prop.setProperty("copyPDFsep", this.copyPDFsep);
+		    prop.setProperty("copyPDFETL_from", this.copyPDFETL_from);
+		    prop.setProperty("copyPDFETL_to", this.copyPDFETL_to);
+		    prop.setProperty("PDFformat", Arrays.toString(this.PDFformat));
 		    
 		    for(Map.Entry<String, String[]> entry : this.patterns.entrySet())
 			{
@@ -254,7 +276,7 @@ public class FileProcessor{
             
             String pdfFile = inputFiles[index].getName();
             
-            String parsedText = this.getTextFromPDF(inputFiles[index], this.rotation_degree);
+            String parsedText = this.getTextFromPDF(inputFiles[index], this.rotation_degree, folderDest);
             
             List<String> header = null;
             ArrayList<String[]> results = new ArrayList<String[]>();
@@ -266,7 +288,7 @@ public class FileProcessor{
             		if (this.debug)
             			System.out.println("TXT created in " + ((System.currentTimeMillis() - time) / 1000.0) + " s");
             	}
-                
+
                 HashMap<String, String> result = this.pattern_match(pdfFile, parsedText);
                 System.out.println("---------------------------------------------------------------------");
                 
@@ -280,6 +302,8 @@ public class FileProcessor{
         		
         		header = this.getResultHeader(result);
         		results.add(this.getResultData(result));
+
+                this.renamePDF(inputFiles[index], folderDest, result);
             }
             
             String csvFile = folderDest + "\\" + this.CSV_filename;
@@ -291,7 +315,7 @@ public class FileProcessor{
     } //match
 
 		
-    private String getTextFromPDF(File pf, int rotation){
+    private String getTextFromPDF(File pf, int rotation, String folderDest){
     	String parsedText = null;
 	    try {
 	    	PDDocument pdDoc = PDDocument.load(pf);
@@ -304,6 +328,9 @@ public class FileProcessor{
 		        }	        
 	    	}
 	        parsedText = new PDFTextStripper().getText(pdDoc);
+	        if(this.copyPDF){
+				pdDoc.save(new File(new File(folderDest), pf.getName()));
+	        }
 	        pdDoc.close();
         } catch (IOException e) {
             e.printStackTrace();
@@ -358,5 +385,37 @@ public class FileProcessor{
             e.printStackTrace();
         }   	
     }
+    
+    private void renamePDF(File pf, String folderDest, HashMap<String, String> result){
+		File file_tmp = new File(new File(folderDest), pf.getName());
+		String base_dest_filename = "";
+		for (String i: this.PDFformat){
+			base_dest_filename += result.get(i) + this.copyPDFsep;
+		}
+		base_dest_filename = base_dest_filename.trim();
+		
+		int i = 1;
+		File file_dest;
+		String dest_filename;
+		do{
+			if(i == 1){
+				dest_filename = (base_dest_filename + ".pdf").replaceAll(this.copyPDFETL_from, this.copyPDFETL_to);
+				file_dest = new File(new File(folderDest), dest_filename);
+			}
+			else
+			{
+				dest_filename = (base_dest_filename + this.copyPDFsep + i + ".pdf").replaceAll(this.copyPDFETL_from, this.copyPDFETL_to);
+				file_dest = new File(new File(folderDest), dest_filename);
+			}
+			i++;
+		}while(file_dest.exists());
+		
+		
+		if(file_tmp.renameTo(file_dest))
+			System.out.println("PDF moved to \""+ dest_filename + "\"");
+		else
+			System.out.println("PDF rename error to \""+ dest_filename + "\"");
+    }
+
 	
 }//class
