@@ -21,10 +21,15 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.csv.*;
 import java.io.BufferedWriter; 
 import java.io.FileWriter;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 public class FileProcessor{
-	public static String DEFAULT_FILENAME = "Default.properties";
-	public static String PREFIX_PATTERN = "pattern.";
+	public static final String DEFAULT_FILENAME = "Default.properties";
+	public static final String PREFIX_PATTERN = "pattern.";
 	
 	public boolean debug;
 	public String propertiesFile;
@@ -35,7 +40,6 @@ public class FileProcessor{
 	private boolean TXT_append;
 	private String TXT_encoding;
 	private String CSV_filename;
-	private boolean CSV_append;
 	private String filename_entry;
 	private String ETL_from;
 	private String ETL_to;
@@ -51,7 +55,6 @@ public class FileProcessor{
 	}
 	
 	public FileProcessor(String propertiesFile){
-		this.CSV_append = true;
 		this.debug = true;
 		this.propertiesFile = propertiesFile;
 		this.patterns_separator = ", ";
@@ -68,7 +71,7 @@ public class FileProcessor{
 		this.copyPDFsep = " ";
 		this.copyPDFETL_from = "/";
 		this.copyPDFETL_to = ".";
-		this.PDFformat = new String[]{"comune", "numero di fattura", "data fattura"};
+		this.PDFformat = new String[]{"1", "2"};
 		
 		if(!new File(this.propertiesFile).exists()){
 			this.loadDefaultPatterns();
@@ -191,6 +194,7 @@ public class FileProcessor{
 		}
 	}
 	
+	@Override
 	public String toString(){
 		String txt = "File: " + this.propertiesFile + System.lineSeparator();
 		for(Entry<String, String[]> entry : this.patterns.entrySet())
@@ -288,7 +292,7 @@ public class FileProcessor{
             		if (this.debug)
             			System.out.println("TXT created in " + ((System.currentTimeMillis() - time) / 1000.0) + " s");
             	}
-
+                
                 HashMap<String, String> result = this.pattern_match(pdfFile, parsedText);
                 System.out.println("---------------------------------------------------------------------");
                 
@@ -302,7 +306,7 @@ public class FileProcessor{
         		
         		header = this.getResultHeader(result);
         		results.add(this.getResultData(result));
-
+        		
                 this.renamePDF(inputFiles[index], folderDest, result);
             }
             
@@ -329,7 +333,7 @@ public class FileProcessor{
 	    	}
 	        parsedText = new PDFTextStripper().getText(pdDoc);
 	        if(this.copyPDF){
-				pdDoc.save(new File(new File(folderDest), pf.getName()));
+	        	pdDoc.save(new File(new File(folderDest), pf.getName()));
 	        }
 	        pdDoc.close();
         } catch (IOException e) {
@@ -363,7 +367,8 @@ public class FileProcessor{
     private void writeCSV(String filename, List<String> header, ArrayList<String[]> values){
     	try{
     		boolean file_exists = new File(filename).exists();
-	    	BufferedWriter writer = new BufferedWriter(new FileWriter(filename, this.CSV_append));
+    		StandardOpenOption[] opts = {StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND};
+	    	BufferedWriter writer = Files.newBufferedWriter(Paths.get(filename), StandardCharsets.UTF_8, opts);
 	    	CSVPrinter printer = new CSVPrinter(writer, CSVFormat.EXCEL);
 	    	
 			if(!file_exists && header != null){
@@ -384,7 +389,7 @@ public class FileProcessor{
         } catch (IOException e) {
             e.printStackTrace();
         }   	
-    }
+    } //writeCSV
     
     private void renamePDF(File pf, String folderDest, HashMap<String, String> result){
 		File file_tmp = new File(new File(folderDest), pf.getName());
