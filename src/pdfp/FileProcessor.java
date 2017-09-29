@@ -6,12 +6,14 @@ import java.util.regex.Pattern;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.TimeZone;
 import java.io.*;
 import org.apache.pdfbox.text.*;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -26,6 +28,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 
 public class FileProcessor{
 	public static final String DEFAULT_FILENAME = "Default.properties";
@@ -55,6 +59,10 @@ public class FileProcessor{
 	}
 	
 	public FileProcessor(String propertiesFile){
+		this(propertiesFile, false);
+	}
+	
+	public FileProcessor(String propertiesFile, boolean writeProperties){
 		this.debug = true;
 		this.propertiesFile = propertiesFile;
 		this.patterns_separator = ", ";
@@ -73,7 +81,7 @@ public class FileProcessor{
 		this.copyPDFETL_to = ".";
 		this.PDFformat = new String[]{"1", "2"};
 		
-		if(!new File(this.propertiesFile).exists()){
+		if((writeProperties == true) && (!new File(this.propertiesFile).exists())){
 			this.loadDefaultPatterns();
 			this.writeProperties();
 		}
@@ -261,10 +269,9 @@ public class FileProcessor{
 		return results;
     }
 	
-    public boolean match(File[] inputFiles, String PDFfilenames, String folderDest) {
+    public boolean match(File[] inputFiles, String folderDest) {
 		System.out.println("Arguments");
 		System.out.println("File[] inputFiles: " + Arrays.toString(inputFiles));
-		System.out.println("String PDFfilenames: " + PDFfilenames);
 		System.out.println("String folderDest: " + folderDest);
 		System.out.println("-----------------");
 		
@@ -273,8 +280,7 @@ public class FileProcessor{
             new File(folderDest).mkdir();
         }
 				
-        String[] nomiPDF = PDFfilenames.split(" , ");
-        for (int index = 0; index < nomiPDF.length; index++) {        	
+        for (int index = 0; index < inputFiles.length; index++) {
             System.out.println("Conversion to text from file \"" + inputFiles[index] + "\"");
             long time = System.currentTimeMillis();
             
@@ -403,15 +409,11 @@ public class FileProcessor{
 		File file_dest;
 		String dest_filename;
 		do{
-			if(i == 1){
+			if(i == 1)
 				dest_filename = (base_dest_filename + ".pdf").replaceAll(this.copyPDFETL_from, this.copyPDFETL_to);
-				file_dest = new File(new File(folderDest), dest_filename);
-			}
 			else
-			{
 				dest_filename = (base_dest_filename + this.copyPDFsep + i + ".pdf").replaceAll(this.copyPDFETL_from, this.copyPDFETL_to);
-				file_dest = new File(new File(folderDest), dest_filename);
-			}
+			file_dest = new File(new File(folderDest), dest_filename);
 			i++;
 		}while(file_dest.exists());
 		
@@ -421,6 +423,45 @@ public class FileProcessor{
 		else
 			System.out.println("PDF rename error to \""+ dest_filename + "\"");
     }
+    
+	public static String getDate()
+	{
+		String DEFAULT_TIMEZIONE = "Europe/Rome";
+		TimeZone tz = TimeZone.getTimeZone(DEFAULT_TIMEZIONE);
+		DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'"); // Quoted "Z" to indicate UTC, no timezone offset
+		df.setTimeZone(tz);
+		return df.format(new Date()); 
+	}
+    
+    public static void main(String[] args){
+		String DateStart = FileProcessor.getDate();
+		if(args.length < 3){
+			System.out.println("Usage: PROPERTYFILE OUTPUTDIR INPUTFILE1/INPUTDIR1 ... INPUTFILEn//INPUTDIRn");
+		}else{
+			FileProcessor p = new FileProcessor(args[0]);
+			p.match(Arrays.copyOfRange(args, 2, args.length), args[1]);
+		}
+		System.out.println("START: " + DateStart);
+		System.out.println("END:   " + FileProcessor.getDate());
+    }
+
+	private void match(String[] files, String folderDest) {
+		List<File> f = new ArrayList<File>();
+		File f1;
+		for(int i = 0; i < files.length; i++){
+			f1 = new File(files[i]);
+			if(f1.isDirectory()){
+				for (File item: f1.listFiles()){
+					f.add(item);
+				}
+			} else {
+				f.add(f1);
+			}
+		}
+		File[] af = new File[f.size()];
+		af = f.toArray(af);
+		this.match(af, folderDest);
+	}
 
 	
 }//class

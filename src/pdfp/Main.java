@@ -59,7 +59,7 @@ public class Main extends JFrame {
         this.initComponents();
     }
     
-	public String printDate()
+	public static String printDate()
 	{
 		TimeZone tz = TimeZone.getTimeZone(DEFAULT_TIMEZIONE);
 		DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'"); // Quoted "Z" to indicate UTC, no timezone offset
@@ -175,7 +175,7 @@ public class Main extends JFrame {
     }
 
     private void btnProcessActionPerformed(ActionEvent evt) {
-    	System.out.println("START: " + this.printDate());
+    	System.out.println("Main START: " + Main.printDate());
         this.FindPath();
         int index = this.cmbFornitore.getSelectedIndex();
         if (this.PDFnames == null || this.PDFnames.equals("")) {
@@ -185,32 +185,13 @@ public class Main extends JFrame {
         } else {
         	System.out.println("selected item " + index + " filename: " + this.filelist[index]);
         	FileProcessor g = new FileProcessor(this.filelist[index] + PropertieFilesExtension);
-			boolean result = g.match(this.inputFiles, this.PDFnames, this.folderDest);
+        	boolean result = g.match(this.inputFiles, this.folderDest);
 			if(result == true)
 				JOptionPane.showMessageDialog(null, "Success!");
 			else
 				JOptionPane.showMessageDialog(null, "Fail!");        	
-        	/*
-			switch(fornitore){
-				case 0:
-					System.out.println("scelta 0 - FileProcessor");
-					FileProcessor g = new FileProcessor();
-					boolean result = g.match(this.inputFiles, this.PDFnames, this.folderDest);
-					if(result == true)
-						JOptionPane.showMessageDialog(null, "Success!");
-					else
-						JOptionPane.showMessageDialog(null, "Fail!");
-					break;
-				case -1:
-					JOptionPane.showMessageDialog(null, "Select a processor!");
-					break;
-				default:
-					JOptionPane.showMessageDialog(null, "Processor not supported!");
-					break;
-			}
-			*/
         }
-        System.out.println("END: " + this.printDate());
+        System.out.println("Main END: " + Main.printDate());
     }
 
     private void cmbFornitoreActionPerformed(ActionEvent evt) {
@@ -225,14 +206,16 @@ public class Main extends JFrame {
         fc.setFileFilter(new PDFFileFilter());
         int value = fc.showOpenDialog(null);
         this.inputFiles = fc.getSelectedFiles();
-        if (value == 0) {
-            this.txtPathPDF.setText(this.printNames());
-        }
-        if (value == 1) {
-            System.out.println("Cancel");
-        }
-        if (value == -1) {
-            System.out.println("ERROR");
+        switch(value){
+        	case 0:
+        		this.txtPathPDF.setText(this.printNames());
+        		break;
+        	case 1:
+        		System.out.println("Cancel");
+        		break;
+        	case -1:
+        		System.out.println("ERROR");
+        		break;
         }
     }
 
