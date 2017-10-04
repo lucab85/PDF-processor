@@ -22,8 +22,6 @@ import org.apache.pdfbox.pdmodel.PDPageTree;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.csv.*;
 import java.io.BufferedWriter; 
-import java.io.FileWriter;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -34,11 +32,15 @@ import java.text.SimpleDateFormat;
 public class FileProcessor{
 	public static final String DEFAULT_FILENAME = "Default.properties";
 	public static final String PREFIX_PATTERN = "pattern.";
+	public static final String PREFIX_STATICS = "statics.";
 	
 	public boolean debug;
 	public String propertiesFile;
 	private String patterns_prefix;
 	private String patterns_separator;
+	private HashMap<String, String[]> patterns;
+	private String statics_prefix;
+	private HashMap<String, String> statics;
 	private int rotation_degree;
 	private boolean TXT_enabled;
 	private boolean TXT_append;
@@ -52,7 +54,8 @@ public class FileProcessor{
 	public String copyPDFsep;
 	public String copyPDFETL_from;
 	public String copyPDFETL_to;
-	private HashMap<String, String[]> patterns;
+	public String[] pageskip;
+	public int pageskip_total;
 
 	public FileProcessor(){
 		this(DEFAULT_FILENAME);
@@ -65,9 +68,10 @@ public class FileProcessor{
 	public FileProcessor(String propertiesFile, boolean writeProperties){
 		this.debug = true;
 		this.propertiesFile = propertiesFile;
-		this.patterns_separator = ", ";
 		this.rotation_degree = 0;
+		this.patterns_separator = ", ";
 		this.patterns_prefix = PREFIX_PATTERN;
+		this.statics_prefix = PREFIX_PATTERN;
 		this.TXT_enabled = false;
 		this.TXT_append = false;
 		this.TXT_encoding = "UTF-8";
@@ -80,6 +84,8 @@ public class FileProcessor{
 		this.copyPDFETL_from = "/";
 		this.copyPDFETL_to = ".";
 		this.PDFformat = new String[]{"1", "2"};
+		this.pageskip = null;
+		this.pageskip_total = 0;
 		
 		if((writeProperties == true) && (!new File(this.propertiesFile).exists())){
 			this.loadDefaultPatterns();
@@ -109,7 +115,6 @@ public class FileProcessor{
 				prop.load(input);
 
 				this.rotation_degree = Integer.parseInt(prop.getProperty("rotation_degree"));
-				this.patterns_prefix = prop.getProperty("patterns_prefix");
 				this.debug = Boolean.parseBoolean(prop.getProperty("debug"));
 				this.TXT_enabled = Boolean.parseBoolean(prop.getProperty("TXT_enabled"));
 				this.TXT_append = Boolean.parseBoolean(prop.getProperty("TXT_append"));
@@ -122,18 +127,34 @@ public class FileProcessor{
 				this.copyPDFsep = prop.getProperty("copyPDFsep");
 				this.copyPDFETL_from = prop.getProperty("copyPDFETL_from");
 				this.copyPDFETL_to = prop.getProperty("copyPDFETL_to");
+				this.patterns_separator = prop.getProperty("patterns_separator");
 				String tmp = prop.getProperty("PDFformat").replaceAll("^\\[", "").replaceAll("\\]$", "");;
 				this.PDFformat = tmp.split(this.patterns_separator);
-				
+				tmp = prop.getProperty("pageskip").replaceAll("^\\[", "").replaceAll("\\]$", "");;
+				this.pageskip = ((tmp.equals("")) || (tmp.equals("null"))) ? null : tmp.split(this.patterns_separator);
+				if(this.pageskip == null)
+					System.out.println("Disabled PAGESKIP");
 
+				this.patterns_prefix = prop.getProperty("patterns_prefix");
 				this.patterns = new HashMap<String, String[]>();
-			    Enumeration<String> names = (Enumeration<String>) prop.propertyNames();
-			    while (names.hasMoreElements()) {
-			    	String name = (String) names.nextElement();
+			    Enumeration<String> patterns_names = (Enumeration<String>) prop.propertyNames();
+			    while (patterns_names.hasMoreElements()) {
+			    	String name = (String) patterns_names.nextElement();
 			    	if(name.startsWith(this.patterns_prefix)){
 				        String data = prop.getProperty(name).replaceAll("^\\[", "").replaceAll("\\]$", "");
 				        String[] values = data.split(this.patterns_separator);
 				        this.patterns.put(name.replace(this.patterns_prefix, ""), values);
+			    	}
+			    }
+			    
+			    this.statics_prefix = prop.getProperty("statics_prefix");
+				this.statics = new HashMap<String, String>();
+			    Enumeration<String> statics_names = (Enumeration<String>) prop.propertyNames();
+			    while (statics_names.hasMoreElements()) {
+			    	String name = (String) statics_names.nextElement();
+			    	if(name.startsWith(this.statics_prefix)){
+				        String data = prop.getProperty(name).replaceAll("^\\[", "").replaceAll("\\]$", "");
+				        this.statics.put(name.replace(this.statics_prefix, ""), data);
 			    	}
 			    }
 			} else {
@@ -164,6 +185,7 @@ public class FileProcessor{
 
 			prop.setProperty("rotation_degree", Integer.toString(this.rotation_degree));
 			prop.setProperty("patterns_prefix", this.patterns_prefix);
+			prop.setProperty("statics_prefix", this.statics_prefix);
 			prop.setProperty("debug", Boolean.toString(this.debug));
 			prop.setProperty("TXT_enabled", Boolean.toString(this.TXT_enabled));
 			prop.setProperty("TXT_append", Boolean.toString(this.TXT_append));
@@ -177,14 +199,23 @@ public class FileProcessor{
 		    prop.setProperty("copyPDFETL_from", this.copyPDFETL_from);
 		    prop.setProperty("copyPDFETL_to", this.copyPDFETL_to);
 		    prop.setProperty("PDFformat", Arrays.toString(this.PDFformat));
+		    prop.setProperty("pageskip", Arrays.toString(this.pageskip));
 		    
 		    for(Map.Entry<String, String[]> entry : this.patterns.entrySet())
 			{
 			    String key = entry.getKey();
 			    String[] value = entry.getValue();
 			    
-			    prop.setProperty("pattern." + key, Arrays.toString(value));
+			    prop.setProperty(this.patterns_prefix + key, Arrays.toString(value));
 			}
+		    for(Entry<String, String> entry : this.statics.entrySet())
+			{
+			    String key = entry.getKey();
+			    String value = entry.getValue();
+			    
+			    prop.setProperty(this.statics_prefix + key, value);
+			}
+
 
 			prop.store(output, null);
 
@@ -265,6 +296,9 @@ public class FileProcessor{
 				}
 			    
 			}
+			for(Map.Entry<String, String> entry : this.statics.entrySet()) {
+				results.put(entry.getKey(), entry.getValue());
+			}
 		}
 		return results;
     }
@@ -279,10 +313,11 @@ public class FileProcessor{
         {
             new File(folderDest).mkdir();
         }
-				
+		
+        long time;
         for (int index = 0; index < inputFiles.length; index++) {
             System.out.println("Conversion to text from file \"" + inputFiles[index] + "\"");
-            long time = System.currentTimeMillis();
+            time = System.currentTimeMillis();
             
             String pdfFile = inputFiles[index].getName();
             
@@ -318,12 +353,80 @@ public class FileProcessor{
             
             String csvFile = folderDest + "\\" + this.CSV_filename;
             this.writeCSV(csvFile, header, results);
-                            
+			
+            System.out.println("PAGE SKIPPED: " + this.pageskip_total);
             System.out.println("PDF file processed in: " + ((System.currentTimeMillis() - time) / 1000.0) + " s");
         }
         return true;
     } //match
 
+    public static int[] convertIntegers(List<Integer> integers)
+    {
+        int[] ret = new int[integers.size()];
+        for (int i=0; i < ret.length; i++)
+        {
+            ret[i] = integers.get(i).intValue();
+        }
+        return ret;
+    }
+    
+    private int[] removePagesIndex(PDDocument pdDoc) {
+    	ArrayList<Integer> result = new ArrayList<Integer>();
+    	
+    	try {
+	    	PDFTextStripper stripper = new PDFTextStripper();
+	    	String txt;
+	    	boolean data_found;
+	        for (int i=1; i <= pdDoc.getNumberOfPages(); i++){
+	        	data_found = false;
+	        	
+	        	stripper.setStartPage(i);
+	        	stripper.setEndPage(i);
+	        	txt = stripper.getText(pdDoc);
+
+	        	/*
+        		if(this.debug) {
+        			String text = txt.substring(0, Math.min(txt.length(), 10));
+        			System.out.println("txt: \"" + text.hashCode() + "\"");
+        		}
+        		*/
+
+	        	if(txt == null || txt == "" || txt.hashCode() == 0) {
+	        		if(this.debug)
+	        			System.out.println("Found empty page: " + i);
+	        		if(!result.contains(i))
+	        			result.add((i));
+	        		data_found = true;
+	        	}
+	        	
+	        	for(int j=0; j < this.pageskip.length; j++) {
+			    	if(this.debug)
+			    		System.out.println("s[" + i + "] :\"" + this.pageskip[j] + "\"");
+	        		Pattern p = Pattern.compile(this.pageskip[j]);
+	    			Matcher m = p.matcher(txt);
+	    			
+	    			while (m.find()) {
+	    				if(this.debug)
+	    					System.out.println("\"pageskip\" found: \"" + m.group() + "\" (p: " + this.pageskip[j] + ")");
+	    				try{
+	    	        		if(!result.contains(i))
+	    	        			result.add((i));
+		    				data_found = true;
+		    				break;
+	    				}catch(IndexOutOfBoundsException e){
+	    					e.printStackTrace();
+	    				}
+	    			}
+	    			if(data_found == true)
+	    				//loop break at first match
+	    				break;
+	        	}
+	        }
+    	} catch (IOException e) {
+    		e.printStackTrace();
+    	}
+    	return FileProcessor.convertIntegers(result);
+    }
 		
     private String getTextFromPDF(File pf, int rotation, String folderDest){
     	String parsedText = null;
@@ -335,9 +438,22 @@ public class FileProcessor{
 		        for (PDPage page: pages)
 		        {
 		        	page.setRotation(rotation);
-		        }	        
+		        }
 	    	}
 	        parsedText = new PDFTextStripper().getText(pdDoc);
+	        if(this.pageskip != null) {
+	        	int src_pages = pdDoc.getNumberOfPages();
+	        	int[] removepages = this.removePagesIndex(pdDoc);
+	        	if(removepages != null) {
+	        		//System.out.println("Remove page(s): " + Arrays.toString(removepages));
+	        		for(int i=(removepages.length - 1); i >= 0; i--) {
+        				pdDoc.removePage((removepages[i] - 1));
+	        		}
+    	        	int dst_pages = pdDoc.getNumberOfPages();
+    	        	this.pageskip_total += src_pages - dst_pages; 
+		        	System.out.println("Number of pages: SRC=" + src_pages + " DST=" + dst_pages + " (removed pages " + Arrays.toString(removepages) + ")");
+	        	}	        	
+	        }
 	        if(this.copyPDF){
 	        	pdDoc.save(new File(new File(folderDest), pf.getName()));
 	        }
@@ -401,7 +517,13 @@ public class FileProcessor{
 		File file_tmp = new File(new File(folderDest), pf.getName());
 		String base_dest_filename = "";
 		for (String i: this.PDFformat){
-			base_dest_filename += result.get(i) + this.copyPDFsep;
+			String val = result.get(i);
+			if(val == null || val == "null") {
+				base_dest_filename = pf.getName();
+				break;
+			} else {
+				base_dest_filename += val + this.copyPDFsep;
+			}
 		}
 		base_dest_filename = base_dest_filename.trim();
 		
