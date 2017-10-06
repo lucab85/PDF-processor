@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Enumeration;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -32,15 +32,20 @@ import java.text.SimpleDateFormat;
 public class FileProcessor{
 	public static final String DEFAULT_FILENAME = "Default.properties";
 	public static final String PREFIX_PATTERN = "pattern.";
-	public static final String PREFIX_STATICS = "statics.";
+	public static final String PREFIX_STATIC = "static.";
+	public static final String PREFIX_ETL = "etl.";
+	public static final String DEFAULT_SEPARATOR = ", ";
 	
 	public boolean debug;
 	public String propertiesFile;
 	private String patterns_prefix;
 	private String patterns_separator;
-	private HashMap<String, String[]> patterns;
+	private LinkedHashMap<String, String[]> patterns;
 	private String statics_prefix;
-	private HashMap<String, String> statics;
+	private LinkedHashMap<String, String> statics;
+	private String etl_prefix;
+	private String etl_separator;
+	private LinkedHashMap<String, String[]> etl;
 	private int rotation_degree;
 	private boolean TXT_enabled;
 	private boolean TXT_append;
@@ -51,6 +56,7 @@ public class FileProcessor{
 	private String ETL_to;
 	public boolean copyPDF;
 	public String[] PDFformat;
+	public String[] CSVformat;
 	public String copyPDFsep;
 	public String copyPDFETL_from;
 	public String copyPDFETL_to;
@@ -69,9 +75,11 @@ public class FileProcessor{
 		this.debug = true;
 		this.propertiesFile = propertiesFile;
 		this.rotation_degree = 0;
-		this.patterns_separator = ", ";
+		this.patterns_separator = DEFAULT_SEPARATOR;
 		this.patterns_prefix = PREFIX_PATTERN;
-		this.statics_prefix = PREFIX_PATTERN;
+		this.statics_prefix = PREFIX_STATIC;
+		this.etl_prefix = PREFIX_ETL;
+		this.etl_separator = DEFAULT_SEPARATOR;
 		this.TXT_enabled = false;
 		this.TXT_append = false;
 		this.TXT_encoding = "UTF-8";
@@ -84,6 +92,7 @@ public class FileProcessor{
 		this.copyPDFETL_from = "/";
 		this.copyPDFETL_to = ".";
 		this.PDFformat = new String[]{"1", "2"};
+		this.CSVformat = new String[]{"1", "2"};
 		this.pageskip = null;
 		this.pageskip_total = 0;
 		
@@ -130,13 +139,15 @@ public class FileProcessor{
 				this.patterns_separator = prop.getProperty("patterns_separator");
 				String tmp = prop.getProperty("PDFformat").replaceAll("^\\[", "").replaceAll("\\]$", "");;
 				this.PDFformat = tmp.split(this.patterns_separator);
+				tmp = prop.getProperty("CSVformat").replaceAll("^\\[", "").replaceAll("\\]$", "");;
+				this.CSVformat = tmp.split(this.patterns_separator);
 				tmp = prop.getProperty("pageskip").replaceAll("^\\[", "").replaceAll("\\]$", "");;
 				this.pageskip = ((tmp.equals("")) || (tmp.equals("null"))) ? null : tmp.split(this.patterns_separator);
 				if(this.pageskip == null)
 					System.out.println("Disabled PAGESKIP");
 
 				this.patterns_prefix = prop.getProperty("patterns_prefix");
-				this.patterns = new HashMap<String, String[]>();
+				this.patterns = new LinkedHashMap<String, String[]>();
 			    Enumeration<String> patterns_names = (Enumeration<String>) prop.propertyNames();
 			    while (patterns_names.hasMoreElements()) {
 			    	String name = (String) patterns_names.nextElement();
@@ -148,13 +159,25 @@ public class FileProcessor{
 			    }
 			    
 			    this.statics_prefix = prop.getProperty("statics_prefix");
-				this.statics = new HashMap<String, String>();
+				this.statics = new LinkedHashMap<String, String>();
 			    Enumeration<String> statics_names = (Enumeration<String>) prop.propertyNames();
 			    while (statics_names.hasMoreElements()) {
 			    	String name = (String) statics_names.nextElement();
 			    	if(name.startsWith(this.statics_prefix)){
 				        String data = prop.getProperty(name).replaceAll("^\\[", "").replaceAll("\\]$", "");
 				        this.statics.put(name.replace(this.statics_prefix, ""), data);
+			    	}
+			    }
+			    
+			    this.etl_prefix = prop.getProperty("etl_prefix");
+				this.etl = new LinkedHashMap<String, String[]>();
+			    Enumeration<String> etl_names = (Enumeration<String>) prop.propertyNames();
+			    while (etl_names.hasMoreElements()) {
+			    	String name = (String) etl_names.nextElement();
+			    	if(name.startsWith(this.etl_prefix)){
+				        String data = prop.getProperty(name).replaceAll("^\\[", "").replaceAll("\\]$", "");
+				        String[] values = data.split(this.etl_separator);
+				        this.patterns.put(name.replace(this.etl_prefix, ""), values);
 			    	}
 			    }
 			} else {
@@ -167,7 +190,7 @@ public class FileProcessor{
 	}
 	
 	private void loadDefaultPatterns(){
-		this.patterns = new HashMap<String, String[]>();
+		this.patterns = new LinkedHashMap<String, String[]>();
 		this.patterns.put("1", (new String[]{
                                "Text1 (.*) Text2, text1 (.*) text2"
 				}));
@@ -251,12 +274,12 @@ public class FileProcessor{
 		return txt;
 	}
 			
-    private HashMap<String, String> pattern_match(String pdffile, String text){    	     	
+    private LinkedHashMap<String, String> pattern_match(String pdffile, String text){
     	Pattern p = null;
     	Matcher m = null;
 		System.out.println("ready for the pattern_match!");
 		
-		HashMap<String, String> results = new HashMap<String, String>();
+		LinkedHashMap<String, String> results = new LinkedHashMap<String, String>();
 		if(this.patterns != null){
 			for(Map.Entry<String, String[]> entry : this.patterns.entrySet())
 			{
@@ -297,6 +320,7 @@ public class FileProcessor{
 			    
 			}
 			for(Map.Entry<String, String> entry : this.statics.entrySet()) {
+				//System.out.println("S: " + entry.getKey() + "= " + entry.getValue());
 				results.put(entry.getKey(), entry.getValue());
 			}
 		}
@@ -334,19 +358,16 @@ public class FileProcessor{
             			System.out.println("TXT created in " + ((System.currentTimeMillis() - time) / 1000.0) + " s");
             	}
                 
-                HashMap<String, String> result = this.pattern_match(pdfFile, parsedText);
+                LinkedHashMap<String, String> result = this.pattern_match(pdfFile, parsedText);
                 System.out.println("---------------------------------------------------------------------");
                 
-        		for(Map.Entry<String, String> entry : result.entrySet())
-        		{
-        		    String key = entry.getKey();
-        		    String value = entry.getValue();
-        		    
-        		    System.out.println("k: " + key + "\t\tv: " + value);
-        		}
-        		
         		header = this.getResultHeader(result);
-        		results.add(this.getResultData(result));
+        		String[] record = this.getResultData(result);
+        		results.add(record);
+        		
+        		for(int i=0; i < record.length; i++) {
+        			System.out.println("k: " + this.CSVformat[i] + "\t\tv: " + record[i]);
+        		}
         		
                 this.renamePDF(inputFiles[index], folderDest, result);
             }
@@ -370,7 +391,7 @@ public class FileProcessor{
         return ret;
     }
     
-    private int[] removePagesIndex(PDDocument pdDoc) {
+    private int[] calcPagRemove(PDDocument pdDoc) {
     	ArrayList<Integer> result = new ArrayList<Integer>();
     	
     	try {
@@ -383,13 +404,6 @@ public class FileProcessor{
 	        	stripper.setStartPage(i);
 	        	stripper.setEndPage(i);
 	        	txt = stripper.getText(pdDoc);
-
-	        	/*
-        		if(this.debug) {
-        			String text = txt.substring(0, Math.min(txt.length(), 10));
-        			System.out.println("txt: \"" + text.hashCode() + "\"");
-        		}
-        		*/
 
 	        	if(txt == null || txt == "" || txt.hashCode() == 0) {
 	        		if(this.debug)
@@ -443,15 +457,14 @@ public class FileProcessor{
 	        parsedText = new PDFTextStripper().getText(pdDoc);
 	        if(this.pageskip != null) {
 	        	int src_pages = pdDoc.getNumberOfPages();
-	        	int[] removepages = this.removePagesIndex(pdDoc);
+	        	int[] removepages = this.calcPagRemove(pdDoc);
 	        	if(removepages != null) {
-	        		//System.out.println("Remove page(s): " + Arrays.toString(removepages));
 	        		for(int i=(removepages.length - 1); i >= 0; i--) {
         				pdDoc.removePage((removepages[i] - 1));
 	        		}
     	        	int dst_pages = pdDoc.getNumberOfPages();
     	        	this.pageskip_total += src_pages - dst_pages; 
-		        	System.out.println("Number of pages: SRC=" + src_pages + " DST=" + dst_pages + " (removed pages " + Arrays.toString(removepages) + ")");
+		        	System.out.println("Number of pages: SRC=" + src_pages + " DST=" + dst_pages + " (removed pages: " + Arrays.toString(removepages) + ")");
 	        	}	        	
 	        }
 	        if(this.copyPDF){
@@ -472,16 +485,22 @@ public class FileProcessor{
         }
     }
     
-    private List<String> getResultHeader(HashMap<String, String> results){
-    	return new ArrayList<String>(results.keySet());
+    private List<String> getResultHeader(LinkedHashMap<String, String> results){
+    	return new ArrayList<String>(Arrays.asList((this.CSVformat)));
 	}
 
-    private String[] getResultData(HashMap<String, String> results){
+    private String[] getResultData(LinkedHashMap<String, String> results){
     	List<String> list_values = new ArrayList<String>();
-    	for(String value : results.values()){
-    		list_values.add(value);
+    	
+    	for(int i=0; i < this.CSVformat.length; i++) {
+    		try {
+    			String value = results.get(this.CSVformat[i]);
+    			list_values.add(value);
+    		}catch (Exception e) {
+    			e.printStackTrace();
+    		}
     	}
-    	String[] values = new String[list_values.size()];
+   		String[] values = new String[list_values.size()];
     	values = list_values.toArray(values);
     	return values;
     }
@@ -513,7 +532,7 @@ public class FileProcessor{
         }   	
     } //writeCSV
     
-    private void renamePDF(File pf, String folderDest, HashMap<String, String> result){
+    private String renamePDF(File pf, String folderDest, LinkedHashMap<String, String> result){
 		File file_tmp = new File(new File(folderDest), pf.getName());
 		String base_dest_filename = "";
 		for (String i: this.PDFformat){
@@ -544,6 +563,7 @@ public class FileProcessor{
 			System.out.println("PDF moved to \""+ dest_filename + "\"");
 		else
 			System.out.println("PDF rename error to \""+ dest_filename + "\"");
+		return dest_filename;
     }
     
 	public static String getDate()
