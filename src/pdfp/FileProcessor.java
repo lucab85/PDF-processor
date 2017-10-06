@@ -177,7 +177,7 @@ public class FileProcessor{
 			    	if(name.startsWith(this.etl_prefix)){
 				        String data = prop.getProperty(name).replaceAll("^\\[", "").replaceAll("\\]$", "");
 				        String[] values = data.split(this.etl_separator);
-				        this.patterns.put(name.replace(this.etl_prefix, ""), values);
+				        this.etl.put(name.replace(this.etl_prefix, ""), values);
 			    	}
 			    }
 			} else {
