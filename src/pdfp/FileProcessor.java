@@ -158,9 +158,13 @@ public class FileProcessor{
 				tmp = prop.getProperty("pageskip").replaceAll(ESCAPE_BRACKET_START, "").replaceAll(ESCAPE_BRACKET_END, "");;
 				this.pageskip = ((tmp.equals("")) || (tmp.equals("null"))) ? null : tmp.split(this.patterns_separator);
 				this.docsplit = prop.getProperty("docsplit");
+				if(this.docsplit.equals("null")  || this.docsplit.equals(""))
+					this.docsplit = null;
 				this.docsplit_skip = Integer.parseInt(prop.getProperty("docsplit_skip"));
 				this.linelimit = Integer.parseInt(prop.getProperty("linelimit"));
 				this.cache = prop.getProperty("cache");
+				if(this.cache.equals("null") || this.cache.equals(""))
+					this.cache = null;
 
 				this.patterns_prefix = prop.getProperty("patterns_prefix");
 				this.patterns = new LinkedHashMap<String, String[]>();
@@ -308,17 +312,23 @@ public class FileProcessor{
 	@Override
 	public String toString()
 	{
+		boolean enabled;
 		StringBuilder txt = new StringBuilder();
 		txt.append("FILE: \"" + this.propertiesFile + "\"" + System.lineSeparator());
-		txt.append("debug: " + this.debug + System.lineSeparator());
-		txt.append("F rotation: " + this.rotation_degree + System.lineSeparator());
+		txt.append("F debug: " + this.debug + System.lineSeparator());
+		enabled = (this.rotation_degree != 0) ? true : false;
+		txt.append("F rotation: " + enabled + " - (degrees: \"" + this.rotation_degree + "\")" + System.lineSeparator());
 		txt.append("F TXT: " + this.TXT_enabled + " (encoding: \"" + TXT_encoding + "\" append: \"" + this.TXT_append + "\")" + System.lineSeparator());
 		txt.append("F PDF_rename: " + this.copyPDF + " (PDFformat: \"" + Arrays.toString(PDFformat) + "\" copyPDFETL_from: \"" + copyPDFETL_from + 
 				"\" copyPDFETL_to: \"" + this.copyPDFETL_to + "\" copyPDFsep: \"" + copyPDFsep + "\")" + System.lineSeparator());
-		txt.append("F pageskip: \"" + Arrays.toString(this.pageskip) + "\"" + System.lineSeparator());
-		txt.append("F multidoc: (text: \"" + this.docsplit + "\" skip: \"" + this.docsplit_skip + "\" )" + System.lineSeparator());
-		txt.append("F iter: \"" + this.linelimit + "\"" + System.lineSeparator());
-		txt.append("F cache: \"" + this.cache + "\"" + System.lineSeparator());
+		enabled = (this.pageskip != null) ? true : false;
+		txt.append("F pageskip: " + enabled + " - (text: \"" + Arrays.toString(this.pageskip) + "\")" + System.lineSeparator());
+		enabled = (this.docsplit != null) ? true : false;
+		txt.append("F multidoc: " + enabled + " - (text: \"" + this.docsplit + "\" skip: \"" + this.docsplit_skip + "\" )" + System.lineSeparator());
+		enabled = (this.linelimit > 1) ? true : false;
+		txt.append("F iter: " + enabled + " - \"" + this.linelimit + "\"" + System.lineSeparator());
+		enabled = (this.cache != null) ? true : false;
+		txt.append("F cache: " + enabled + " - \"" + this.cache + "\"" + System.lineSeparator());
 		txt.append("PATTERNs: " + this.patterns.size() + " (prefix: \"" + this.patterns_prefix + "\" separator: \"" + this.patterns_separator + "\")" + System.lineSeparator());
 		txt.append(HM_toString(this.patterns, this.patterns_separator, "p"));
 		txt.append("STATICs: " + this.statics.size() + " (prefix: \"" + this.statics_prefix + "\" separator: \"" + this.patterns_separator + "\")" + System.lineSeparator());
@@ -401,6 +411,7 @@ public class FileProcessor{
     public String[] split(String parsedText) {
     	String[] result;
     	if(this.docsplit != null) {
+    		System.out.println("Split by \"" + this.docsplit + "\"");
     		//return parsedText.split(this.docsplit);
     		String[] splitted = parsedText.split(this.docsplit);
     		result = Arrays.copyOfRange(splitted, this.docsplit_skip, splitted.length);
@@ -451,14 +462,16 @@ public class FileProcessor{
 	                for(int iter = 1; iter < this.linelimit; iter++) {
 		                result = this.pattern_match(doc, iter);
 		                if(result.size() > THRESOLD_NULLCOUNT){
-		                	String cache_current = result.get(this.cache);
-		                	if(cache_current == null || cache_current == "" || cache_current == "null") {
-		                		System.out.println("GET cache \""+ this.cache +"\" = " + cache_value + " (read \"" + cache_current + "\")");
-		                		result.put(this.cache, cache_value);
-		                	} else {
-		                		System.out.println("SET cache \""+ this.cache +"\" = " + cache_current);
-		                		cache_value = cache_current;
-		                	}
+		                	if(this.cache != null) {
+			                	String cache_current = result.get(this.cache);
+			                	if(cache_current == null || cache_current.equals("") || cache_current.equals("null")) {
+			                		System.out.println("GET cache \""+ this.cache +"\" = " + cache_value + " (read \"" + cache_current + "\")");
+			                		result.put(this.cache, cache_value);
+			                	} else {
+			                		System.out.println("SET cache \""+ this.cache +"\" = " + cache_current);
+			                		cache_value = cache_current;
+			                	}
+		                	}//cache feature
 			                PDF_rename = this.get_namePDF(inputFiles[index], folderDest, result);
 						    result.put(this.filename_entry, PDF_rename);
 			                System.out.println("---------------------------------------------------------------------");
@@ -512,7 +525,7 @@ public class FileProcessor{
 	        	stripper.setEndPage(i);
 	        	txt = stripper.getText(pdDoc);
 
-	        	if(txt == null || txt == "" || txt.hashCode() == 0) {
+	        	if(txt == null || txt.equals("") || txt.hashCode() == 0) {
 	        		if(this.debug)
 	        			System.out.println("Found empty page: " + i);
 	        		if(!result.contains(i))
@@ -655,7 +668,7 @@ public class FileProcessor{
 		String base_dest_filename = "";
 		for (String i: this.PDFformat){
 			String val = result.get(i);
-			if(val == null || val == "null") {
+			if(val == null || val.equals("null")) {
 				base_dest_filename = pf.getName();
 				break;
 			} else {
