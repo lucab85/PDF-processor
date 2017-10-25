@@ -40,7 +40,8 @@ public class FileProcessor{
 	public static final String ESCAPE_BRACKET_END = "\\]$";
 	public static final String DOUBLE_PDF_EXTENSION = "\\.pdf\\.pdf$";
 	public static final String PDF_EXTENSION = ".pdf";
-	public static final int THRESOLD_NULLCOUNT = 4;
+	public static final int THRESOLD_NULLCOUNT = 9;
+	public static final int THRESOLD_PAGES = 6;
 	
 	public boolean debug;
 	public String propertiesFile;
@@ -72,6 +73,7 @@ public class FileProcessor{
 	private int docsplit_skip;
 	private int linelimit;
 	private String cache;
+	private int pages;
 
 	public FileProcessor(){
 		this(DEFAULT_FILENAME);
@@ -410,11 +412,10 @@ public class FileProcessor{
     
     public String[] split(String parsedText) {
     	String[] result;
-    	if(this.docsplit != null) {
-    		System.out.println("Split by \"" + this.docsplit + "\"");
-    		//return parsedText.split(this.docsplit);
-    		String[] splitted = parsedText.split(this.docsplit);
-    		result = Arrays.copyOfRange(splitted, this.docsplit_skip, splitted.length);
+    	if(this.docsplit != null && this.pages > THRESOLD_PAGES) {
+	    	System.out.println("MULTIDOC Split by \"" + this.docsplit + "\"");
+	    	String[] splitted = parsedText.split(this.docsplit);
+	    	result = Arrays.copyOfRange(splitted, this.docsplit_skip, splitted.length);
     	} else
     		result = new String[] {parsedText};
     	return result;
@@ -433,6 +434,7 @@ public class FileProcessor{
 		
         long time;
         for (int index = 0; index < inputFiles.length; index++) {
+    		this.pages = 0;
             System.out.println("Conversion to text from file \"" + inputFiles[index] + "\"");
             time = System.currentTimeMillis();
             
@@ -441,7 +443,7 @@ public class FileProcessor{
             String parsedText = this.getTextFromPDF(inputFiles[index], this.rotation_degree, folderDest);
             
             String[] docs = this.split(parsedText);
-            System.out.println("Total docs: " + docs.length);
+            System.out.println("Number of doc(s): " + docs.length);
             
             List<String> header = null;
             String PDF_rename = inputFiles[index].getName();
@@ -495,7 +497,7 @@ public class FileProcessor{
             String csvFile = folderDest + "\\" + this.CSV_filename;
             this.writeCSV(csvFile, header, results);
 			
-            System.out.println("PAGE SKIPPED: " + this.pageskip_total);
+            System.out.println("PAGEs SKIPPED: " + this.pageskip_total);
             System.out.println("PDF file processed in: " + ((System.currentTimeMillis() - time) / 1000.0) + " s");
         }
         return true;
@@ -575,6 +577,7 @@ public class FileProcessor{
 	        		System.out.println("We can't decrypt it.");
 	            }
 	        }
+	        this.pages = pdDoc.getNumberOfPages();
 	    	if(rotation != 0){
 		        PDPageTree pages = pdDoc.getDocumentCatalog().getPages();
 

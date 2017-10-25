@@ -2,6 +2,7 @@
 
 if [ "$#" -ne 1 ]; then
 	echo "Usage: $0 <ErrorProne path>"
+	echo "see http://errorprone.info/docs/installation"
 	exit 1
 fi
 
