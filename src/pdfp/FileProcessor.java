@@ -40,7 +40,6 @@ public class FileProcessor{
 	public static final String ESCAPE_BRACKET_END = "\\]$";
 	public static final String DOUBLE_PDF_EXTENSION = "\\.pdf\\.pdf$";
 	public static final String PDF_EXTENSION = ".pdf";
-	public static final int THRESOLD_NULLCOUNT = 9;
 	public static final int THRESOLD_PAGES = 6;
 	
 	public boolean debug;
@@ -74,6 +73,7 @@ public class FileProcessor{
 	private int linelimit;
 	private String cache;
 	private int pages;
+	private int null_limit;
 
 	public FileProcessor(){
 		this(DEFAULT_FILENAME);
@@ -111,6 +111,7 @@ public class FileProcessor{
 		this.docsplit_skip = 0;
 		this.linelimit = 1;
 		this.cache = null;
+		this.null_limit = 0;
 		
 		if((writeProperties == true) && (!new File(this.propertiesFile).exists())){
 			this.loadDefaultPatterns();
@@ -167,6 +168,7 @@ public class FileProcessor{
 				this.cache = prop.getProperty("cache");
 				if(this.cache.equals("null") || this.cache.equals(""))
 					this.cache = null;
+				this.null_limit = Integer.parseInt(prop.getProperty("null_limit"));
 
 				this.patterns_prefix = prop.getProperty("patterns_prefix");
 				this.patterns = new LinkedHashMap<String, String[]>();
@@ -262,6 +264,7 @@ public class FileProcessor{
 		    prop.setProperty("docsplit_skip", Integer.toString(this.docsplit_skip));
 		    prop.setProperty("linelimit", Integer.toString(this.linelimit));
 		    prop.setProperty("cache", this.cache);
+		    prop.setProperty("null_limit", Integer.toString(this.null_limit));
 		    
 		    for(Map.Entry<String, String[]> entry : this.patterns.entrySet())
 			{
@@ -331,6 +334,7 @@ public class FileProcessor{
 		txt.append("F iter: " + enabled + " - \"" + this.linelimit + "\"" + System.lineSeparator());
 		enabled = (this.cache != null) ? true : false;
 		txt.append("F cache: " + enabled + " - \"" + this.cache + "\"" + System.lineSeparator());
+		txt.append("F null_limit: \"" + this.null_limit + "\"" + System.lineSeparator());
 		txt.append("PATTERNs: " + this.patterns.size() + " (prefix: \"" + this.patterns_prefix + "\" separator: \"" + this.patterns_separator + "\")" + System.lineSeparator());
 		txt.append(HM_toString(this.patterns, this.patterns_separator, "p"));
 		txt.append("STATICs: " + this.statics.size() + " (prefix: \"" + this.statics_prefix + "\" separator: \"" + this.patterns_separator + "\")" + System.lineSeparator());
@@ -396,9 +400,9 @@ public class FileProcessor{
 					results.put(key, null);
 					counter_null++;
 				}
-				if(counter_null >= THRESOLD_NULLCOUNT) {
+				if(counter_null >= this.null_limit) {
 			    	if(this.debug)
-			    		System.out.println("NULLCounter: " + counter_null + "/" + THRESOLD_NULLCOUNT);
+			    		System.out.println("NULLCounter: " + counter_null + "/" + this.null_limit);
 			    	return results;
 				}
 			}
@@ -463,7 +467,7 @@ public class FileProcessor{
 	            if(doc != null) {
 	                for(int iter = 1; iter < this.linelimit; iter++) {
 		                result = this.pattern_match(doc, iter);
-		                if(result.size() > THRESOLD_NULLCOUNT){
+		                if(result.size() > this.null_limit){
 		                	if(this.cache != null) {
 			                	String cache_current = result.get(this.cache);
 			                	if(cache_current == null || cache_current.equals("") || cache_current.equals("null")) {
