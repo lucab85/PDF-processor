@@ -133,7 +133,7 @@ public class Main extends JFrame {
         });
         GroupLayout jPanel3Layout = new GroupLayout(this.jPanel3);
         this.jPanel3.setLayout(jPanel3Layout);
-        jPanel3Layout.setHorizontalGroup(jPanel3Layout.createParallelGroup(GroupLayout.Alignment.LEADING).addGroup(jPanel3Layout.createSequentialGroup().addContainerGap().addComponent(this.cmbFornitore, -2, 119, -2).addContainerGap(28, 32767)));
+        jPanel3Layout.setHorizontalGroup(jPanel3Layout.createParallelGroup(GroupLayout.Alignment.LEADING).addGroup(jPanel3Layout.createSequentialGroup().addContainerGap().addComponent(this.cmbFornitore, -2, 220, -2).addContainerGap(28, 32767)));
         jPanel3Layout.setVerticalGroup(jPanel3Layout.createParallelGroup(GroupLayout.Alignment.LEADING).addGroup(jPanel3Layout.createSequentialGroup().addContainerGap().addComponent(this.cmbFornitore, -2, -1, -2).addContainerGap(-1, 32767)));
         this.btnExit.setText("Exit");
         this.btnExit.addActionListener(new ActionListener(){

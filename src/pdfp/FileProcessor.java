@@ -204,11 +204,13 @@ public class FileProcessor{
 				        
 				        /*
 				         * TODO
-				        for (String value : values) {
-				        	value = value.replaceAll(ESCAPE_BRACKET_START, "").replaceAll(ESCAPE_BRACKET_END, "");
-				            System.out.println("ETL: " + value);
-				        }
+						for (String value : values) {
+							value = value.replaceAll(ESCAPE_BRACKET_START, "").replaceAll(ESCAPE_BRACKET_END, "");
+							System.out.println("ETL: " + value);
+						}
 				         */
+				        
+
 				        for(int i = 0; i < values.length; i++) {
 				        	String val = values[i].replaceAll(ESCAPE_BRACKET_START, "").replaceAll(ESCAPE_BRACKET_END, "");
 				        	values[i] = val;
@@ -381,7 +383,14 @@ public class FileProcessor{
 		    				found = found.replaceAll(ETL_from, ETL_to);
 					    	if( this.etl.keySet().contains(key))
 					    	{
-					    		found = found.replaceAll(this.etl.get(key)[0], this.etl.get(key)[1]);
+					    		if(this.debug)
+					    			System.out.println("ETL \"" + key + "\" src value \"" + found + "\"");
+					    		String[] etls = this.etl.get(key);
+					    		for(int k=0; k < etls.length; k = k + 2) {
+					    			found = found.replaceAll(etls[k], etls[k+1]);
+					    		}
+					    		if(this.debug)
+					    			System.out.println("ETL \"" + key + "\" dst value \"" + found + "\"");
 					    	}
 		    				results.put(key, found);
 		    				data_found = true;
