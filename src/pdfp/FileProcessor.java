@@ -1,6 +1,5 @@
 package pdfp;
 
-import java.io.File;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.ArrayList;
@@ -22,7 +21,7 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageTree;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.csv.*;
-import java.io.BufferedWriter; 
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -58,6 +57,7 @@ public class FileProcessor{
 	private String TXT_encoding;
 	private String CSV_filename;
 	private String filename_entry;
+	private boolean filename_with_path;
 	private String ETL_from;
 	private String ETL_to;
 	private boolean copyPDF;
@@ -97,6 +97,7 @@ public class FileProcessor{
 		this.TXT_encoding = "UTF-8";
 		this.CSV_filename = "output.csv";
 		this.filename_entry = "filename";
+		this.filename_with_path = false;
 		this.ETL_from = "\\r\\n|\\r|\\n";
 		this.ETL_to = " ";
 		this.copyPDF = true;
@@ -147,6 +148,7 @@ public class FileProcessor{
 				this.TXT_encoding = prop.getProperty("TXT_encoding");
 				this.CSV_filename = prop.getProperty("CSV_filename");
 				this.filename_entry = prop.getProperty("filename_entry");
+				this.filename_with_path = Boolean.parseBoolean(prop.getProperty("filename_with_path"));
 				this.ETL_from = prop.getProperty("ETL_from");
 				this.ETL_to = prop.getProperty("ETL_to");
 				this.copyPDF = Boolean.parseBoolean(prop.getProperty("copyPDF"));
@@ -253,7 +255,8 @@ public class FileProcessor{
 			prop.setProperty("TXT_append", Boolean.toString(this.TXT_append));
 			prop.setProperty("TXT_encoding", this.TXT_encoding);
 			prop.setProperty("CSV_filename", this.CSV_filename);
-			prop.setProperty("filename_entry", this.filename_entry); 
+			prop.setProperty("filename_entry", this.filename_entry);
+			prop.setProperty("filename_with_path", Boolean.toString(this.filename_with_path));
 		    prop.setProperty("ETL_from", this.ETL_from);
 		    prop.setProperty("ETL_to", this.ETL_to);
 		    prop.setProperty("copyPDF", Boolean.toString(this.copyPDF));
@@ -349,6 +352,23 @@ public class FileProcessor{
 		return txt.toString();
 	}
 	
+	private String applyETL(String key, String txt) {
+		txt = txt.replaceAll(ETL_from, ETL_to);
+		if( this.etl.keySet().contains(key))
+		{
+			if(this.debug)
+				System.out.println("ETL \"" + key + "\" src value \"" + txt + "\"");
+			String[] etls = this.etl.get(key);
+			for(int k=0; k < etls.length; k = k + 2) {
+				txt = txt.replaceAll(etls[k], etls[k+1]);
+			}
+			if(this.debug)
+				System.out.println("ETL \"" + key + "\" dst value \"" + txt + "\"");
+		}
+		return txt;
+	}
+
+	
     private LinkedHashMap<String, String> pattern_match(String text, int iter){
     	Pattern p = null;
     	Matcher m = null;
@@ -380,18 +400,7 @@ public class FileProcessor{
 	    					String found = m.group(1);
 		    				if(this.debug)
 		    					System.out.println("\"" + key + "\" found: \"" + found + "\" (p: " + pattern[i] + ")");
-		    				found = found.replaceAll(ETL_from, ETL_to);
-					    	if( this.etl.keySet().contains(key))
-					    	{
-					    		if(this.debug)
-					    			System.out.println("ETL \"" + key + "\" src value \"" + found + "\"");
-					    		String[] etls = this.etl.get(key);
-					    		for(int k=0; k < etls.length; k = k + 2) {
-					    			found = found.replaceAll(etls[k], etls[k+1]);
-					    		}
-					    		if(this.debug)
-					    			System.out.println("ETL \"" + key + "\" dst value \"" + found + "\"");
-					    	}
+		    				found = this.applyETL(key, found);
 		    				results.put(key, found);
 		    				data_found = true;
 		    				break;
@@ -487,8 +496,16 @@ public class FileProcessor{
 			                		cache_value = cache_current;
 			                	}
 		                	}//cache feature
-			                PDF_rename = this.get_namePDF(inputFiles[index], folderDest, result);
-						    result.put(this.filename_entry, PDF_rename);
+		                	
+		                	PDF_rename = this.get_namePDF(inputFiles[index], folderDest, result);
+
+		                	String filename_item;
+			                if (this.filename_with_path == true)
+			                	filename_item = folderDest + "\\" + PDF_rename;
+			                else
+			                	filename_item = PDF_rename;
+			                filename_item = this.applyETL(this.filename_entry, filename_item);
+			                result.put(this.filename_entry, filename_item);
 			                System.out.println("---------------------------------------------------------------------");
 			                
 			        		header = this.getResultHeader(result);
@@ -655,7 +672,9 @@ public class FileProcessor{
     		boolean file_exists = new File(filename).exists();
     		StandardOpenOption[] opts = {StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND};
 	    	BufferedWriter writer = Files.newBufferedWriter(Paths.get(filename), StandardCharsets.UTF_8, opts);
-	    	CSVPrinter printer = new CSVPrinter(writer, CSVFormat.EXCEL);
+	    	CSVFormat CSV_FORMAT = CSVFormat.EXCEL.withDelimiter(';');
+	    	//CSVPrinter printer = new CSVPrinter(writer, CSVFormat.EXCEL);
+	    	CSVPrinter printer = new CSVPrinter(writer, CSV_FORMAT);
 	    	
 			if(!file_exists && header != null){
 	            for (String head : header) {
@@ -711,7 +730,16 @@ public class FileProcessor{
 		return output;
     }
     
-    private String renamePDF(File source, File destination){
+    public String getParentName(File file) {
+        if(file == null || file.isDirectory()) {
+                return null;
+        }
+        String parent = file.getParent();
+        parent = parent.substring(parent.lastIndexOf("\\") + 1, parent.length());
+        return parent;      
+    }
+    
+	private String renamePDF(File source, File destination){
 		if(source.renameTo(destination))
 			System.out.println("PDF moved to \""+ destination + "\"");
 		else
